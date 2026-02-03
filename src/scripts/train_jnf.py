@@ -1,9 +1,9 @@
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import ModelSummary
-from models.exp_jnf import JNFExp
-from models.models import FTJNF
-from data.datamodule import HDF5DataModule
+from src.models.exp_jnf import JNFExp
+from src.models.models import FTJNF
+from src.data.datamodule import HDF5DataModule
 from typing import Optional
 import yaml
 
@@ -53,7 +53,7 @@ def get_trainer(devices, logger, max_epochs, gradient_clip_val, gradient_clip_al
 
 if __name__=="__main__":
 
-    with open('config/jnf_config.yaml') as config_file: 
+    with open('src/config/jnf_config.yaml') as config_file: 
         config = yaml.safe_load(config_file)
 
     ## REPRODUCIBILITY
@@ -82,4 +82,6 @@ if __name__=="__main__":
     ## TRAIN
     trainer = get_trainer(logger=tb_logger, **config['training'])
     trainer.fit(exp, dm)
+
+    ## todo: (where) is the model saved?
 

@@ -1,8 +1,8 @@
 from typing import Literal
 import torch
 from torch import nn
-from models.exp_enhancement import EnhancementExp
-from models.models import FTJNF
+from src.models.exp_enhancement import EnhancementExp
+from src.models.models import FTJNF
 
 class JNFExp(EnhancementExp):
 

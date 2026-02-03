@@ -27,8 +27,9 @@ The code in this file was partially written by Nils Mohrmann.
 
 # WSJ0 dataset path
 WSJ0_PATH = "/path/to/wsj0/CSR-1-WSJ-0/WAV/wsj0"
+
 # Path where to save the simulated data
-SIM_DATA_PATH = "./prep/"
+SIM_DATA_PATH = "./data/prep/"
 
 
 class RoomSimulation:
@@ -146,6 +147,8 @@ class SPRoomSimulator:
         """
         # set seed for this sample
         self.rng = np.random.default_rng(seed2)
+        # meta data dictionary which containts the RT60, room dimensions, microphone positions (with rotations),
+        # the target file name, number of samples, target position and angle and interfering speaker file names and positions
         meta = {}
 
         signal = []
@@ -398,7 +401,7 @@ if __name__ == '__main__':
                           WSJ0_PATH,
                           n_interfering_speakers=5,
                           n_channels=3,
-                          num_files={'train': 6000, 'val': 1000, 'test': 600},
+                          num_files={'train': 1, 'val': 1, 'test': 1},
                           reverb=True,
                           target_angle=0,
                           rt60_min=0.2,

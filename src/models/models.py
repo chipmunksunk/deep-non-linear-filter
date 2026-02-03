@@ -70,7 +70,7 @@ class JNF(nn.Module):
         self.permute = permute_freqs
         self.narrow_band = narrow_band
 
-        lstm_input = 2*n_channels
+        lstm_input = 2*n_channels # because of real and imaginary part
         if self.append_freq_idx and self.permute:
             lstm_input += 1
 

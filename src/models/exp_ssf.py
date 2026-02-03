@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 import numpy as np
-from models.exp_enhancement import EnhancementExp
+from src.models.exp_enhancement import EnhancementExp
 from torchmetrics.aggregation import RunningMean
 from typing import Literal
 
