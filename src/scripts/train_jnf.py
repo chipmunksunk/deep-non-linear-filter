@@ -83,5 +83,6 @@ if __name__=="__main__":
     trainer = get_trainer(logger=tb_logger, **config['training'])
     trainer.fit(exp, dm)
 
-    ## todo: (where) is the model saved?
+    ## Metrics are logged by Tensorboard Logger. Access by executing the following command in the terminal: "tensorboard --logdir logs/tb_logs"
+    ## More information about logging in Lightning can be found at: https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html#tensorboard-logger
 

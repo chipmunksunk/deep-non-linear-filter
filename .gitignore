@@ -1,3 +1,4 @@
 *.pyc
 *.json
 *.hdf5
+logs/*

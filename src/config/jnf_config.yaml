@@ -46,5 +46,5 @@ training:
 
 
 logging:
-  tb_log_dir: "../logs/tb_logs"
-  ckpt_dir: "../logs/ckpts"
+  tb_log_dir: "./logs/tb_logs"
+  ckpt_dir: "./logs/ckpts"
