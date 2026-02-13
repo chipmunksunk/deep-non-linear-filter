@@ -2,11 +2,11 @@
 seed: 123
 
 data:
-  n_channels: 4
+  n_channels: 1
   batch_size: 2
   prep_files: {
-                data: ./data/prep/prep_mix_2025_12_02_15_33_55_nSetups20_15dB_400ms.hdf5,
-                meta: ./data/prep/prep_mix_meta_2025_12_02_15_33_55_nSetups20_15dB_400ms.json,
+                data: ./src/data/prep/prep_mix_2025_12_02_15_33_55_nSetups20_15dB_400ms.hdf5,
+                meta: ./src/data/prep/prep_mix_meta_2025_12_02_15_33_55_nSetups20_15dB_400ms.json,
               }
   dry_target: True
   snr_range: []
@@ -16,7 +16,7 @@ data:
   n_workers: 10
 
 network:
-  n_channels: 4
+  n_channels: 1
   n_lstm_hidden1: 256
   n_lstm_hidden2: 128
   bidirectional: True
@@ -36,12 +36,11 @@ experiment:
   reference_channel: 0
 
 training:
-  max_epochs: 2
+  max_epochs: 50
   gradient_clip_val: 0
   gradient_clip_algorithm: value
   strategy: ddp
-  # todo: check why gpu does not work
-  accelerator: cpu
+  accelerator: gpu
   devices: 1
 
 

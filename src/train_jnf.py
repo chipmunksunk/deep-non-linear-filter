@@ -53,7 +53,7 @@ def get_trainer(devices, logger, max_epochs, gradient_clip_val, gradient_clip_al
 
 if __name__=="__main__":
 
-    with open('config/jnf_config.yaml') as config_file: 
+    with open('src/config/jnf_config.yaml') as config_file: 
         config = yaml.safe_load(config_file)
 
     ## REPRODUCIBILITY

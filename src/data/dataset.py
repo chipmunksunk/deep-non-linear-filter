@@ -134,6 +134,7 @@ class MixDataset(Dataset):
                 'clean_td': dry_clean_audio if self.use_dry_target else reverb_clean_audio,
                 'reverb_clean_td': reverb_clean_audio,
                 'noise_td': noise_audio,
+                # todo: 'atf_vector_est': H_hat,
                 'start_idx': start_idx, 
                 'sample_idx': idx,
                 'target_dir': target_dir}
