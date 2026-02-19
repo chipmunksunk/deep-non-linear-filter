@@ -38,7 +38,9 @@ class JNF(nn.Module):
                  dropout: float = 0, 
                  append_freq_idx: bool = False,
                  permute_freqs: bool = False,
-                 narrow_band: bool = False):
+                 narrow_band: bool = False,
+                 post_filter:bool = False
+                 ):
         """
         Initialize model.
 
@@ -54,6 +56,7 @@ class JNF(nn.Module):
         :param append_freq_idx: add the frequency-bin index to the input of the LSTM when using permuted sequences
         :param permute_freqs: permute the LSTM input sequence
         :param narrow_band: use narrow-band input if narrow_band else use wide-band input
+        :param post_filter: if True, change network architecture to be a single-channel post-filter with time being the sequence dimension and frequency being the feature dimension
         """
         super(JNF, self).__init__()
 
@@ -70,7 +73,16 @@ class JNF(nn.Module):
         self.permute = permute_freqs
         self.narrow_band = narrow_band
 
-        lstm_input = 2*n_channels # because of real and imaginary part
+        # Hashir: If post_filter, the network architecture is adjusted to be a single-channel post-filter with time being the sequence dimension and frequency being the feature dimension or vice versa.
+        if post_filter:
+            assert n_channels == 1, "Post-filter architecture only supports single-channel input."
+            if narrow_band:
+                lstm_input = 2*n_freqs
+            else:
+                lstm_input = 2*n_time_steps
+        else:
+            lstm_input = 2*n_channels # because of real and imaginary part
+        
         if self.append_freq_idx and self.permute:
             lstm_input += 1
 

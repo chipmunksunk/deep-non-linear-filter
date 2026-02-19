@@ -7,10 +7,11 @@ import numpy as np
 import librosa
 import shutil
 
-SOURCE_DATA_PATH = "/home/hahmad/Documents/MATLAB/LTSforWASN-main/databases/2025_12_02_15_33_55_nSetups20_15dB_400ms"
+SOURCE_DATA_PATH = "/home/hahmad/Documents/MATLAB/LTSforWASN-main/databases/2026_02_18_15_01_49_nSetups20_10dB_whiteNoise"
 DEST_DATA_PATH = "./src/data/prep/"
 DEST_RAW_DATA_PATH = "./src/data/raw/"
-PFIX = {"clean": "clean_speech.wav", "noise": "noise_hat_sc.wav", "reverb": "d_hat_sc.wav", "meta": "meta.json"}
+# PFIX = {"clean": "clean_speech.wav", "noise": "noise_hat_sc.wav", "reverb": "d_hat_sc.wav", "meta": "meta.json"}
+PFIX = {"clean": "cleanSpeech.wav", "noise": "noise.wav", "reverb": "micSpeech.wav", "meta": "meta.json"}
 
 def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
                           store_dir: str, 
@@ -26,8 +27,6 @@ def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
     :param dataset_id: postfix to specify the characteristics of the dataset
     :return:
     """
-    # source_wav_dir = os.path.join(source_dataset_dir, 'processed', 'best', 'gevd_ml')
-    # source_meta_dir = os.path.join(source_dataset_dir, 'mat_files')
     dataset_id = os.path.split(source_dataset_dir)[-1] if dataset_id is None else dataset_id
 
     prep_store_name = f"prep_mix{'_' + dataset_id if dataset_id else ''}.hdf5"
@@ -41,16 +40,14 @@ def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
                 continue
             
             files_meta = [name for name in os.listdir(os.path.join(source_dataset_dir, dataset_name)) if name.endswith(PFIX["meta"])]
-            files_clean_speech = [name for name in os.listdir(os.path.join(source_dataset_dir, dataset_name)) if name.endswith(PFIX["clean"])]
-            files_reverb_speech = [name for name in os.listdir(os.path.join(source_dataset_dir, dataset_name)) if name.endswith(PFIX["reverb"])]
-            files_noise = [name for name in os.listdir(os.path.join(source_dataset_dir, dataset_name)) if name.endswith(PFIX["noise"])]
+            sample_ids = [name.split("_")[1] for name in files_meta]
             n_dataset_samples = len(files_meta)
             
             # determine number of files to create
             n_dataset_samples = num_files[dataset_name] if num_files[dataset_name] > 0 else n_dataset_samples
 
             # pre-loading a single sample to determine number of channels
-            temp_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, files_reverb_speech[0]), mono=False, sr=target_fs)[0]
+            temp_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_ids[0]}_{PFIX["reverb"]}'), mono=False, sr=target_fs)[0]
             n_channels = temp_signal.shape[0] if len(temp_signal.shape) > 1 else 1
 
             MAX_SAMPLES_PER_FILE = target_utterance_length_s * target_fs
@@ -69,19 +66,20 @@ def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
             # the target file name, number of samples, target position and angle, and interfering speaker file names and positions
             dataset_meta = {}
 
-            for sample_idx, (meta_file, reverb_file, noise_file, clean_file) in enumerate(zip(files_meta, files_reverb_speech, files_noise, files_clean_speech)):
-                sample_meta = get_meta_from_json(os.path.join(source_dataset_dir, dataset_name, meta_file))
-                reverb_target_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, reverb_file), sr=target_fs, mono=False)[0]
-                noise_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, noise_file), sr=target_fs, mono=False)[0]
-                dry_target_signal = np.expand_dims(librosa.load(os.path.join(source_dataset_dir, dataset_name, clean_file), sr=target_fs, mono=False)[0], axis=0)
+            # for sample_idx, (meta_file, reverb_file, noise_file, clean_file) in enumerate(zip(files_meta, files_reverb_speech, files_noise, files_clean_speech)):
+            for idx, sample_id in enumerate(sample_ids):
+                sample_meta  = get_meta_from_json(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["meta"]}'))
+                reverb_target_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["reverb"]}'), sr=target_fs, mono=False)[0]
+                noise_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["noise"]}'), sr=target_fs, mono=False)[0]
+                dry_target_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["clean"]}'), sr=target_fs, mono=False)[0]
 
                 for audio_type_idx, audio_signal in enumerate([reverb_target_signal, noise_signal, dry_target_signal]):
                     n_audio_samples = min(
                         audio_signal.shape[-1], MAX_SAMPLES_PER_FILE)
-                    audio_dataset[sample_idx, audio_type_idx, :, :n_audio_samples] = audio_signal[...,:n_audio_samples]
-                    audio_dataset[sample_idx, audio_type_idx, :, n_audio_samples:MAX_SAMPLES_PER_FILE] = 0
+                    audio_dataset[idx, audio_type_idx, :, :n_audio_samples] = audio_signal[...,:n_audio_samples]
+                    audio_dataset[idx, audio_type_idx, :, n_audio_samples:MAX_SAMPLES_PER_FILE] = 0
 
-                dataset_meta[sample_idx] = sample_meta
+                dataset_meta[idx] = sample_meta
 
             meta[dataset_name] = dataset_meta
 
@@ -101,13 +99,17 @@ def get_meta_from_json(json_path:str):
     with open(json_path, 'r') as meta_file:
         meta_json = json.load(meta_file)
 
-    meta["rt"] = meta_json["sampling"]["T60_ms"]
-    meta["room_dim"] = meta_json["room_size_m"]
+    # meta["rt"] = meta_json["sampling"]["T60_ms"]
+    # meta["room_dim"] = meta_json["room_size_m"]
     meta["mic_pos"] = meta_json["positions"]["mics_m"]
     # meta["mic_phi"] = phi
     # meta["target_file"] = speaker_list[0].split("wsj0")[-1].replace("\\", "/")
-    meta["n_samples"] = meta_json["sampling"]["fs_Hz"] * meta_json["sampling"]["length_s"]
+    # meta["n_samples"] = meta_json["sampling"]["fs_Hz"] * meta_json["sampling"]["length_s"]
+
+    # TODO: Hardcoded target utterance length for now, will be changed when json files are adjusted
+    meta["n_samples"] = 16000*10
     meta["target_pos"] = meta_json["positions"]["sources_m"]
+
     # meta["target_angle"] = target_angle
     # meta[f"interf{interf_idx}_file"] = interf_path.split("wsj0")[-1].replace("\\", "/")
     # meta[f"interf{interf_idx}_pos"] = interf_source.tolist()
@@ -219,7 +221,8 @@ def create_train_val_test_split(raw_dataset_dir:str, split_ratios: dict = {'trai
     print(f"Train, validation and test split created with {nTrain} training samples, {nVal} validation samples and {nTest} test samples.")
 
 if __name__ == '__main__':
-    import_data(os.path.join(SOURCE_DATA_PATH, 'processed', 'best', 'gevd_ml'), DEST_RAW_DATA_PATH, substring=[PFIX["noise"], PFIX["reverb"]])
+    # import_data(os.path.join(SOURCE_DATA_PATH, 'processed', 'best', 'gevd_ml'), DEST_RAW_DATA_PATH, substring=[PFIX["noise"], PFIX["reverb"]])
+    import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["noise"], PFIX["reverb"]])
     import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["clean"]])
     import_data(os.path.join(SOURCE_DATA_PATH, 'mat_files'), DEST_RAW_DATA_PATH, substring=[PFIX["meta"]])
 

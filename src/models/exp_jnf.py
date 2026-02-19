@@ -1,6 +1,6 @@
 from typing import Literal
 import torch
-from torch import nn
+from torch import nn, stack
 from models.exp_enhancement import EnhancementExp
 from models.models import FTJNF
 
@@ -37,15 +37,55 @@ class JNFExp(EnhancementExp):
     def forward(self, input):
         speech_mask = self.model(input)
         return speech_mask
+    
+    # Hashir: Added for evaluation of a single utterance and listening to the estimated clean signal.
+    def forward_single_utterance(self, dm, idx):
+        data = dm.get_utterance(idx)
+        # convert numpy signals to torch tensors and move to device
+        noisy_td, clean_td, noise_td = torch.from_numpy(data[0]).to(self.device), torch.from_numpy(data[1]).to(self.device), torch.from_numpy(data[2]).to(self.device)
+        noisy_stft, clean_stft, noise_stft = self.get_stft_rep(noisy_td, clean_td, noise_td)
+        # add batch dimension
+        noisy_stft, clean_stft, noise_stft = noisy_stft.unsqueeze(0), clean_stft.unsqueeze(0), noise_stft.unsqueeze(0)
+
+        # Hashir: If input is singlechannel, switch channel and frequency dimensions to act as a tempo-spectral sc postfilter
+        if noisy_stft.shape[1] == 1:
+            noisy_stft_sc = noisy_stft.permute(0, 2, 1, 3)
+            stacked_noisy_stft = torch.concat((torch.real(noisy_stft_sc), torch.imag(noisy_stft_sc)), dim=1)
+        else:
+            stacked_noisy_stft = torch.concat((torch.real(noisy_stft), torch.imag(noisy_stft)), dim=1)
+
+        # compute mask estimate
+        if self.model.output_type == 'IRM':
+            irm_speech_mask = self.model(stacked_noisy_stft)
+            speech_mask, noise_mask = irm_speech_mask, 1-irm_speech_mask
+        elif self.model.output_type == 'CRM':
+            stacked_speech_mask = self.model(stacked_noisy_stft)
+            speech_mask, noise_mask = self.get_complex_masks_from_stacked(stacked_speech_mask)
+        else:
+            raise ValueError(f'The output type {self.model.output_type} is not supported.')
+
+        # compute estimates
+        est_clean_stft = noisy_stft[:, self.reference_channel, ...] * speech_mask
+        est_noise_stft = noisy_stft[:, self.reference_channel, ...] * noise_mask
+        clean_td, noise_td, est_clean_td, est_noise_td = self.get_td_rep(clean_stft[:, self.reference_channel, ...], noise_stft[:, self.reference_channel, ...],
+                                                                         est_clean_stft, est_noise_stft)
+        
+        return clean_td, noise_td, est_clean_td, est_noise_td
 
     def shared_step(self, batch, batch_idx, stage: Literal['train', 'val']):
 
         noisy_td, clean_td, noise_td = batch['noisy_td'], batch['clean_td'], batch['noise_td']
         noisy_stft, clean_stft, noise_stft = self.get_stft_rep(noisy_td, clean_td, noise_td)
 
-        # compute mask estimate
-        stacked_noisy_stft = torch.concat((torch.real(noisy_stft), torch.imag(noisy_stft)), dim=1)
+        
+        # Hashir: If input is singlechannel, switch channel and frequency dimensions to act as a tempo-spectral sc postfilter
+        if noisy_stft.shape[1] == 1:
+            noisy_stft_sc = noisy_stft.permute(0, 2, 1, 3)
+            stacked_noisy_stft = torch.concat((torch.real(noisy_stft_sc), torch.imag(noisy_stft_sc)), dim=1)
+        else:
+            stacked_noisy_stft = torch.concat((torch.real(noisy_stft), torch.imag(noisy_stft)), dim=1)
 
+        # compute mask estimate
         if self.model.output_type == 'IRM':
             irm_speech_mask = self.model(stacked_noisy_stft)
             speech_mask, noise_mask = irm_speech_mask, 1-irm_speech_mask

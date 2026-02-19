@@ -3,4 +3,5 @@
 *.hdf5
 logs/*
 src/data/raw/*
-src/config/jnf_config.yaml
+src/config/*
+src/audio/*

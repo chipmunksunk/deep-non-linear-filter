@@ -5,8 +5,8 @@ data:
   n_channels: 1
   batch_size: 2
   prep_files: {
-                data: ./src/data/prep/prep_mix_2025_12_02_15_33_55_nSetups20_15dB_400ms.hdf5,
-                meta: ./src/data/prep/prep_mix_meta_2025_12_02_15_33_55_nSetups20_15dB_400ms.json,
+                data: ./src/data/prep/prep_mix_2026_02_18_15_01_49_nSetups20_10dB_whiteNoise.hdf5,
+                meta: ./src/data/prep/prep_mix_meta_2026_02_18_15_01_49_nSetups20_10dB_whiteNoise.json,
               }
   dry_target: True
   snr_range: []
@@ -16,16 +16,19 @@ data:
   n_workers: 10
 
 network:
+  n_time_steps: 624
+  n_freqs: 257
   n_channels: 1
   n_lstm_hidden1: 256
   n_lstm_hidden2: 128
   bidirectional: True
-  freq_first: True
   output_type: 'CRM'
   output_activation: 'tanh'
   append_freq_idx: False
   permute_freqs: False
   dropout: 0
+  narrow_band: True
+  post_filter: True
 
 experiment:
   learning_rate: 0.001
@@ -36,7 +39,7 @@ experiment:
   reference_channel: 0
 
 training:
-  max_epochs: 50
+  max_epochs: 1
   gradient_clip_val: 0
   gradient_clip_algorithm: value
   strategy: ddp
@@ -45,5 +48,5 @@ training:
 
 
 logging:
-  tb_log_dir: "../logs/tb_logs"
-  ckpt_dir: "../logs/ckpts"
+  tb_log_dir: "./logs/tb_logs"
+  ckpt_dir: "./logs/ckpts"

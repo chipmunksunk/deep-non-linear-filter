@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import ModelSummary
 from models.exp_jnf import JNFExp
-from models.models import FTJNF
+from models.models import JNF
 from data.datamodule import HDF5DataModule
 from typing import Optional
 import yaml
@@ -29,10 +29,27 @@ def setup_logging(tb_log_dir: str, version_id: Optional[int]= None):
 
 def load_model(ckpt_file: str,
                _config):
-    init_params = JNFExp.get_init_params(_config)
+    init_params = get_init_params(_config)
     model = JNFExp.load_from_checkpoint(ckpt_file, **init_params)
     model.to('cuda')
     return model
+
+#Hashir: Had to be added to use the load_model function
+def get_init_params(_config):
+    data_config = _config['data']
+    stft_length = data_config.get('stft_length_samples', 512)
+    stft_shift = data_config.get('stft_shift_samples', 256)
+    
+    model = JNF(**_config['network'])
+
+    init_params = {
+        'stft_length': stft_length,
+        'stft_shift': stft_shift,
+        **_config['experiment'],
+        'model': model
+    }
+
+    return init_params
 
 def get_trainer(devices, logger, max_epochs, gradient_clip_val, gradient_clip_algorithm, strategy, accelerator):
     return pl.Trainer(enable_model_summary=True,
@@ -73,7 +90,7 @@ if __name__=="__main__":
     if not ckpt_file is None:
         exp = load_model(ckpt_file, config)
     else:
-        model = FTJNF(**config['network'])
+        model = JNF(**config['network'])
         exp = JNFExp(model=model,
                     stft_length=stft_length,
                     stft_shift=stft_shift,
@@ -82,6 +99,10 @@ if __name__=="__main__":
     ## TRAIN
     trainer = get_trainer(logger=tb_logger, **config['training'])
     trainer.fit(exp, dm)
+
+    ## SAVE USED CONFIG FILE
+    with open(f'{tb_logger.log_dir}/config_used.yaml', 'w') as config_out_file:
+        yaml.dump(config, config_out_file)
 
     ## Metrics are logged by Tensorboard Logger. Access by executing the following command in the terminal: "tensorboard --logdir logs/tb_logs"
     ## More information about logging in Lightning can be found at: https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html#tensorboard-logger
