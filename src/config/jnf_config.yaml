@@ -10,7 +10,7 @@ data:
               }
   dry_target: True
   snr_range: []
-  meta_frame_length: 48000
+  meta_frame_length: -1
   stft_length_samples: 512
   stft_shift_samples: 256
   n_workers: 10

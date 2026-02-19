@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
-from pytorch_lightning.callbacks import ModelSummary
+from pytorch_lightning.callbacks import ModelSummary, Callback
 from models.exp_jnf import JNFExp
 from models.models import JNF
 from data.datamodule import HDF5DataModule
@@ -8,6 +8,15 @@ from typing import Optional
 import yaml
 
 EXP_NAME='JNF'
+
+class SaveConfigCallback(Callback):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+
+    def on_fit_start(self, trainer, pl_module):
+        with open(f'{trainer.logger.log_dir}/config_used.yaml', 'w') as config_out_file:
+            yaml.dump(self.config, config_out_file)
 
 def setup_logging(tb_log_dir: str, version_id: Optional[int]= None):
     """
@@ -51,7 +60,7 @@ def get_init_params(_config):
 
     return init_params
 
-def get_trainer(devices, logger, max_epochs, gradient_clip_val, gradient_clip_algorithm, strategy, accelerator):
+def get_trainer(devices, logger, config, max_epochs, gradient_clip_val, gradient_clip_algorithm, strategy, accelerator):
     return pl.Trainer(enable_model_summary=True,
                          logger=logger,
                          devices=devices,
@@ -62,8 +71,9 @@ def get_trainer(devices, logger, max_epochs, gradient_clip_val, gradient_clip_al
                          strategy = strategy,
                          accelerator = accelerator,
                          callbacks=[
-                             #setup_checkpointing(),
-                             ModelSummary(max_depth=2)
+                            #setup_checkpointing(),
+                            ModelSummary(max_depth=2),
+                            SaveConfigCallback(config)
                                     ],
 
                          )
@@ -97,12 +107,8 @@ if __name__=="__main__":
                     **config['experiment'])
 
     ## TRAIN
-    trainer = get_trainer(logger=tb_logger, **config['training'])
+    trainer = get_trainer(logger=tb_logger, config=config, **config['training'])
     trainer.fit(exp, dm)
-
-    ## SAVE USED CONFIG FILE
-    with open(f'{tb_logger.log_dir}/config_used.yaml', 'w') as config_out_file:
-        yaml.dump(config, config_out_file)
 
     ## Metrics are logged by Tensorboard Logger. Access by executing the following command in the terminal: "tensorboard --logdir logs/tb_logs"
     ## More information about logging in Lightning can be found at: https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html#tensorboard-logger

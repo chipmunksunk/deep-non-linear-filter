@@ -112,7 +112,12 @@ class MixDataset(Dataset):
 
         if self.disable_random and not self.start_idxs is None:
             start_idx = self.start_idxs[idx]
-        reverb_clean_audio, dry_clean_audio, noise_audio, start_idx = self._read_audio_segment(idx, start_idx)
+        
+        if self.meta_frame_length < 0:
+            audio, start_idx = self._read_audio_segment(idx, start_idx)
+            reverb_clean_audio, dry_clean_audio, noise_audio = audio[0], audio[1], audio[2]
+        else:
+            reverb_clean_audio, dry_clean_audio, noise_audio, start_idx = self._read_audio_segment(idx, start_idx)
         
         if not self.snr_range is None and not len(self.snr_range) == 0:
             snr = random.choice(self.snr_range)

@@ -39,7 +39,7 @@ class JNFExp(EnhancementExp):
         return speech_mask
     
     # Hashir: Added for evaluation of a single utterance and listening to the estimated clean signal.
-    def forward_single_utterance(self, dm, idx):
+    def evaluate_single_utterance(self, dm, idx):
         data = dm.get_utterance(idx)
         # convert numpy signals to torch tensors and move to device
         noisy_td, clean_td, noise_td = torch.from_numpy(data[0]).to(self.device), torch.from_numpy(data[1]).to(self.device), torch.from_numpy(data[2]).to(self.device)
