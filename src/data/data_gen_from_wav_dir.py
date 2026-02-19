@@ -44,7 +44,10 @@ def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
             n_dataset_samples = len(files_meta)
             
             # determine number of files to create
-            n_dataset_samples = num_files[dataset_name] if num_files[dataset_name] > 0 else n_dataset_samples
+            if n_dataset_samples == 0:
+                continue
+            else:
+                n_dataset_samples = num_files[dataset_name] if num_files[dataset_name] > 0 else n_dataset_samples
 
             # pre-loading a single sample to determine number of channels
             temp_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_ids[0]}_{PFIX["reverb"]}'), mono=False, sr=target_fs)[0]
@@ -226,5 +229,5 @@ if __name__ == '__main__':
     import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["clean"]])
     import_data(os.path.join(SOURCE_DATA_PATH, 'mat_files'), DEST_RAW_DATA_PATH, substring=[PFIX["meta"]])
 
-    create_train_val_test_split(DEST_RAW_DATA_PATH, split_ratios={'train': 0.8, 'val': 0.1, 'test': 0.1})
+    create_train_val_test_split(DEST_RAW_DATA_PATH, split_ratios={'train': 0.5, 'val': 0.5, 'test': 0.0})
     prep_speaker_mix_data_from_wav_dir(DEST_RAW_DATA_PATH, DEST_DATA_PATH, dataset_id=os.path.split(SOURCE_DATA_PATH)[-1], num_files= {'train': -1, 'val': -1, 'test': -1}, target_fs=16000, target_utterance_length_s=10) 
