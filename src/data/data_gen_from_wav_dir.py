@@ -229,5 +229,5 @@ if __name__ == '__main__':
     import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["clean"]])
     import_data(os.path.join(SOURCE_DATA_PATH, 'mat_files'), DEST_RAW_DATA_PATH, substring=[PFIX["meta"]])
 
-    create_train_val_test_split(DEST_RAW_DATA_PATH, split_ratios={'train': 0.5, 'val': 0.5, 'test': 0.0})
+    create_train_val_test_split(DEST_RAW_DATA_PATH, split_ratios={'train': 0.7, 'val': 0.3, 'test': 0.0})
     prep_speaker_mix_data_from_wav_dir(DEST_RAW_DATA_PATH, DEST_DATA_PATH, dataset_id=os.path.split(SOURCE_DATA_PATH)[-1], num_files= {'train': -1, 'val': -1, 'test': -1}, target_fs=16000, target_utterance_length_s=10) 

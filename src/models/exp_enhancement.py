@@ -5,6 +5,7 @@ import numpy as np
 from typing import List, Union, Literal
 from utils.log_images import make_image_grid
 from torch.optim import Adam
+from models.models import JNF_PF
 
 
 class EnhancementExp(pl.LightningModule):
@@ -108,7 +109,11 @@ class EnhancementExp(pl.LightningModule):
         :param real_mask: estimated mask with stacked real and imaginary components [BATCH, 2, F, T]
         :return: the complex masks [B, F, T]
         """
-        compressed_complex_speech_mask = real_mask[:, 0, ...] + (1j) * real_mask[:, 1, ...]
+        if isinstance(self.model, JNF_PF):
+            n_freq = real_mask.shape[2]
+            compressed_complex_speech_mask = real_mask[:, :, 0:n_freq//2,...] + (1j) * real_mask[:, :, n_freq//2:,...]
+        else:
+            compressed_complex_speech_mask = real_mask[:, 0, ...] + (1j) * real_mask[:, 1, ...]
 
         complex_speech_mask = (-1 / self.cirm_C) * torch.log(
             (self.cirm_K - self.cirm_K * compressed_complex_speech_mask) / (

@@ -1,14 +1,15 @@
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import ModelSummary, Callback
-from models.exp_jnf import JNFExp
-from models.models import JNF
+from models.exp_jnf import JNFExp_PF, JNFExp
+from models.models import JNF_PF, JNF
 from data.datamodule import HDF5DataModule
 from typing import Optional
 import yaml
 
 EXP_NAME='JNF'
 
+# Hashir: Added for saving the config file used for training in the log directory for reproducibility and later reference. The config file is saved at the start of training by the SaveConfigCallback callback. The config file is loaded for evaluation in the load_model function.
 class SaveConfigCallback(Callback):
     def __init__(self, config):
         super().__init__()
@@ -37,28 +38,30 @@ def setup_logging(tb_log_dir: str, version_id: Optional[int]= None):
     return tb_logger, version_id
 
 def load_model(ckpt_file: str,
-               _config):
-    init_params = get_init_params(_config)
-    model = JNFExp.load_from_checkpoint(ckpt_file, **init_params)
+               _config,
+               jnf_model,
+               jnf_exp_model):
+    #Hashir: Had to be added to use the load_model function
+    def get_init_params(_config, jnf_model):
+        data_config = _config['data']
+        stft_length = data_config.get('stft_length_samples', 512)
+        stft_shift = data_config.get('stft_shift_samples', 256)
+        
+        model = jnf_model(**_config['network'])
+
+        init_params = {
+            'stft_length': stft_length,
+            'stft_shift': stft_shift,
+            **_config['experiment'],
+            'model': model
+        }
+
+        return init_params
+    
+    init_params = get_init_params(_config, jnf_model)
+    model = jnf_exp_model.load_from_checkpoint(ckpt_file, **init_params)
     model.to('cuda')
     return model
-
-#Hashir: Had to be added to use the load_model function
-def get_init_params(_config):
-    data_config = _config['data']
-    stft_length = data_config.get('stft_length_samples', 512)
-    stft_shift = data_config.get('stft_shift_samples', 256)
-    
-    model = JNF(**_config['network'])
-
-    init_params = {
-        'stft_length': stft_length,
-        'stft_shift': stft_shift,
-        **_config['experiment'],
-        'model': model
-    }
-
-    return init_params
 
 def get_trainer(devices, logger, config, max_epochs, gradient_clip_val, gradient_clip_algorithm, strategy, accelerator):
     return pl.Trainer(enable_model_summary=True,
@@ -79,6 +82,9 @@ def get_trainer(devices, logger, config, max_epochs, gradient_clip_val, gradient
                          )
 
 if __name__=="__main__":
+    
+    jnf_model = JNF
+    jnf_exp_model = JNFExp
 
     with open('src/config/jnf_config.yaml') as config_file: 
         config = yaml.safe_load(config_file)
@@ -98,10 +104,10 @@ if __name__=="__main__":
     ## CONFIGURE EXPERIMENT
     ckpt_file = config['training'].get('resume_ckpt', None)
     if not ckpt_file is None:
-        exp = load_model(ckpt_file, config)
+        exp = load_model(ckpt_file, config, jnf_model, jnf_exp_model)
     else:
-        model = JNF(**config['network'])
-        exp = JNFExp(model=model,
+        model = jnf_model(**config['network'])
+        exp = jnf_exp_model(model=model,
                     stft_length=stft_length,
                     stft_shift=stft_shift,
                     **config['experiment'])

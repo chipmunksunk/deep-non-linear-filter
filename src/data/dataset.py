@@ -113,11 +113,7 @@ class MixDataset(Dataset):
         if self.disable_random and not self.start_idxs is None:
             start_idx = self.start_idxs[idx]
         
-        if self.meta_frame_length < 0:
-            audio, start_idx = self._read_audio_segment(idx, start_idx)
-            reverb_clean_audio, dry_clean_audio, noise_audio = audio[0], audio[1], audio[2]
-        else:
-            reverb_clean_audio, dry_clean_audio, noise_audio, start_idx = self._read_audio_segment(idx, start_idx)
+        reverb_clean_audio, dry_clean_audio, noise_audio, start_idx = self._read_audio_segment(idx, start_idx)
         
         if not self.snr_range is None and not len(self.snr_range) == 0:
             snr = random.choice(self.snr_range)
@@ -139,7 +135,7 @@ class MixDataset(Dataset):
                 'clean_td': dry_clean_audio if self.use_dry_target else reverb_clean_audio,
                 'reverb_clean_td': reverb_clean_audio,
                 'noise_td': noise_audio,
-                # todo: 'atf_vector_est': H_hat,
+                # TODO: 'atf_vector_est': H_hat,
                 'start_idx': start_idx, 
                 'sample_idx': idx,
                 'target_dir': target_dir}
@@ -179,7 +175,11 @@ class MixDataset(Dataset):
         n_samples = min(self.meta_data[str(idx)]['n_samples'], audio.shape[-1])
 
         if self.meta_frame_length < 0:
-            return audio[..., :n_samples], 0  # return full audio if meta_frame_length is -1
+            # Hashir: return full audio if meta_frame_length is -1
+            return  audio[0, :self.n_channels, :n_samples], \
+                    audio[2, :self.n_channels, :n_samples], \
+                    audio[1, :self.n_channels, :n_samples], \
+                    0
 
         possible_start = n_samples - self.meta_frame_length
 
