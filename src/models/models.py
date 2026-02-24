@@ -455,8 +455,7 @@ class JNF_PF(nn.Module):
                  output_activation: Literal['sigmoid', 'tanh', 'linear'] = 'tanh', 
                  dropout: float = 0, 
                  append_freq_idx: bool = False,
-                 permute_freqs: bool = False,
-                 narrow_band: bool = False
+                 permute_freqs: bool = False
                  ):
         """
         Initialize model.
@@ -471,8 +470,7 @@ class JNF_PF(nn.Module):
         :param output_activation: the activation function applied to the network output (options: 'sigmoid', 'tanh', 'linear')
         :param dropout: dropout percentage (default: no dropout)
         :param append_freq_idx: add the frequency-bin index to the input of the LSTM when using permuted sequences
-        :param permute_freqs: permute the LSTM input sequence
-        :param narrow_band: use narrow-band input if narrow_band else use wide-band input
+        :param permute_freqs: permute the LSTM input sequence (no effect in PF case)
         """
         super(JNF_PF, self).__init__()
 
@@ -487,7 +485,6 @@ class JNF_PF(nn.Module):
         self.output_activation = output_activation
         self.append_freq_idx = append_freq_idx
         self.permute = permute_freqs
-        self.narrow_band = narrow_band
 
         # Hashir: If post_filter, the network architecture is adjusted to be a single-channel post-filter with time being the sequence dimension and frequency being the feature dimension or vice versa.
         assert n_channels == 1, "Post-filter architecture only supports single-channel input."
@@ -529,30 +526,27 @@ class JNF_PF(nn.Module):
         n_batch, n_channel, n_freq, n_times = x.shape
         assert n_channel == 1, "Post-filter architecture only supports single-channel input."
 
-        if self.narrow_band:
-            seq_len = n_times
-            tmp_batch = n_batch*n_channel
-            x = x.permute(3,0,1,2).reshape(n_times, n_batch*n_channel, n_freq)
-        else: # wide_band
-            seq_len = n_freq
-            tmp_batch = n_batch*n_channel
-            x = x.permute(2,0,1,3).reshape(n_freq, n_batch*n_channel, n_times)
 
-        if self.permute:
-            perm = torch.randperm(seq_len)
-            inv_perm = torch.zeros(seq_len, dtype=int)
-            for i, val in enumerate(perm):
-                inv_perm[val] = i
-            x = x[perm]
+        seq_len = n_times
+        tmp_batch = n_batch*n_channel
+        x = x.permute(3,0,1,2).reshape(n_times, n_batch*n_channel, n_freq)
 
-            if self.append_freq_idx:
-                if self.narrow_band:
-                    freq_bins = torch.arange(n_freq).repeat(n_batch*n_times).reshape(seq_len, tmp_batch, 1).to(x.device)
-                    x = torch.concat((x, freq_bins), dim=-1)
-                else:
-                    freq_bins = torch.arange(n_freq).repeat(int(seq_len/n_freq))[perm]
-                    freq_bins = freq_bins.unsqueeze(1).unsqueeze(1).broadcast_to((seq_len, tmp_batch, 1)).to(x.device)
-                    x = torch.concat((x, freq_bins), dim=-1)
+
+        # if self.permute:
+        #     perm = torch.randperm(seq_len)
+        #     inv_perm = torch.zeros(seq_len, dtype=int)
+        #     for i, val in enumerate(perm):
+        #         inv_perm[val] = i
+        #     x = x[perm]
+
+        #     if self.append_freq_idx:
+        #         if self.narrow_band:
+        #             freq_bins = torch.arange(n_freq).repeat(n_batch*n_times).reshape(seq_len, tmp_batch, 1).to(x.device)
+        #             x = torch.concat((x, freq_bins), dim=-1)
+        #         else:
+        #             freq_bins = torch.arange(n_freq).repeat(int(seq_len/n_freq))[perm]
+        #             freq_bins = freq_bins.unsqueeze(1).unsqueeze(1).broadcast_to((seq_len, tmp_batch, 1)).to(x.device)
+        #             x = torch.concat((x, freq_bins), dim=-1)
 
         x, _ = self.lstm1(x)
         x = self.dropout(x)
@@ -560,12 +554,9 @@ class JNF_PF(nn.Module):
         x = self.dropout(x)
         x = self.ff(x)
 
-        if self.permute:
-            x = x[inv_perm]
+        # if self.permute:
+        #     x = x[inv_perm]
 
-        if self.narrow_band:
-            x = x.reshape(n_times, n_batch, 1, self.linear_out_features).permute(1,2,3,0) # output shape [BATCH, 1, FREQ, TIME]
-        else: # wide_band
-            x = x.reshape(n_freq, n_batch, 1, self.linear_out_features).permute(1,2,0,3) # output shape [BATCH, 1, FREQ, TIME]
+        x = x.reshape(n_times, n_batch, 1, self.linear_out_features).permute(1,2,3,0) # output shape [BATCH, 1, FREQ, TIME]
         x = self.mask_activation(x)
         return x

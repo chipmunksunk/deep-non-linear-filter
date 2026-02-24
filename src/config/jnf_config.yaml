@@ -10,14 +10,14 @@ data:
               }
   dry_target: True
   snr_range: []
-  meta_frame_length: 160000
+  meta_frame_length: 48000
   stft_length_samples: 512
   stft_shift_samples: 256
   n_workers: 10
 
+model_type: 'FTJNF' # options: 'FTJNF', 'JNF_PF', 'JNF'
+
 network:
-  n_time_steps: 624
-  n_freqs: 257
   n_channels: 1
   n_lstm_hidden1: 256
   n_lstm_hidden2: 128
@@ -25,9 +25,8 @@ network:
   output_type: 'CRM'
   output_activation: 'tanh'
   append_freq_idx: False
-  permute_freqs: True
+  permute_freqs: False
   dropout: 0
-  narrow_band: True
 
 experiment:
   learning_rate: 0.001

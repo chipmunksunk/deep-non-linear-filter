@@ -2,12 +2,10 @@ import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import ModelSummary, Callback
 from models.exp_jnf import JNFExp_PF, JNFExp
-from models.models import JNF_PF, JNF
+from models.models import JNF_PF, JNF, FTJNF
 from data.datamodule import HDF5DataModule
 from typing import Optional
 import yaml
-
-EXP_NAME='JNF'
 
 # Hashir: Added for saving the config file used for training in the log directory for reproducibility and later reference. The config file is saved at the start of training by the SaveConfigCallback callback. The config file is loaded for evaluation in the load_model function.
 class SaveConfigCallback(Callback):
@@ -19,7 +17,7 @@ class SaveConfigCallback(Callback):
         with open(f'{trainer.logger.log_dir}/config_used.yaml', 'w') as config_out_file:
             yaml.dump(self.config, config_out_file)
 
-def setup_logging(tb_log_dir: str, version_id: Optional[int]= None):
+def setup_logging(tb_log_dir: str, exp_name: str, version_id: Optional[int]= None):
     """
     Set-up a Tensorboard logger.
 
@@ -28,12 +26,12 @@ def setup_logging(tb_log_dir: str, version_id: Optional[int]= None):
     """
 
     if version_id is None:
-        tb_logger = pl_loggers.TensorBoardLogger(tb_log_dir, name=EXP_NAME, log_graph=False)
+        tb_logger = pl_loggers.TensorBoardLogger(tb_log_dir, name=exp_name, log_graph=False)
 
         # get current version id
         version_id = int((tb_logger.log_dir).split('_')[-1])
     else: 
-        tb_logger = pl_loggers.TensorBoardLogger(tb_log_dir, name=EXP_NAME, log_graph=False, version=version_id)
+        tb_logger = pl_loggers.TensorBoardLogger(tb_log_dir, name=exp_name, log_graph=False, version=version_id)
 
     return tb_logger, version_id
 
@@ -82,18 +80,27 @@ def get_trainer(devices, logger, config, max_epochs, gradient_clip_val, gradient
                          )
 
 if __name__=="__main__":
-    
-    jnf_model = JNF
-    jnf_exp_model = JNFExp
 
     with open('src/config/jnf_config.yaml') as config_file: 
         config = yaml.safe_load(config_file)
+
+    if config['model_type'] == 'JNF_PF':
+        jnf_model = JNF_PF
+        jnf_exp_model = JNFExp_PF
+    elif config['model_type'] == 'FTJNF':
+        jnf_model = FTJNF
+        jnf_exp_model = JNFExp
+    else:
+        jnf_model = JNF
+        jnf_exp_model = JNFExp
+
+    exp_name=config['model_type']
 
     ## REPRODUCIBILITY
     pl.seed_everything(config.get('seed', 0), workers=True)
 
     ## LOGGING
-    tb_logger, version = setup_logging(config['logging']['tb_log_dir'])
+    tb_logger, version = setup_logging(config['logging']['tb_log_dir'], exp_name=exp_name)
 
     ## DATA
     data_config = config['data']

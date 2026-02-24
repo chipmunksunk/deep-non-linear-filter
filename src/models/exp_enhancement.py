@@ -109,6 +109,7 @@ class EnhancementExp(pl.LightningModule):
         :param real_mask: estimated mask with stacked real and imaginary components [BATCH, 2, F, T]
         :return: the complex masks [B, F, T]
         """
+        # Hashir: Added case for JNF_PF
         if isinstance(self.model, JNF_PF):
             n_freq = real_mask.shape[2]
             compressed_complex_speech_mask = real_mask[:, :, 0:n_freq//2,...] + (1j) * real_mask[:, :, n_freq//2:,...]
