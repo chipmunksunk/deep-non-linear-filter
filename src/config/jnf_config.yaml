@@ -5,8 +5,8 @@ data:
   n_channels: 1
   batch_size: 2
   prep_files: {
-                data: ./src/data/prep/prep_mix_2026_02_18_15_01_49_nSetups20_10dB_whiteNoise.hdf5,
-                meta: ./src/data/prep/prep_mix_meta_2026_02_18_15_01_49_nSetups20_10dB_whiteNoise.json,
+                data: ./src/data/prep/prep_mix_2026_02_26_13_10_40_nSetups20_15dB_40ms.hdf5,
+                meta: ./src/data/prep/prep_mix_meta_2026_02_26_13_10_40_nSetups20_15dB_40ms.json,
               }
   dry_target: True
   snr_range: []
@@ -37,7 +37,7 @@ experiment:
   reference_channel: 0
 
 training:
-  max_epochs: 50
+  max_epochs: 2
   gradient_clip_val: 0
   gradient_clip_algorithm: value
   strategy: ddp

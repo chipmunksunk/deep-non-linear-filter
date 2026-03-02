@@ -90,7 +90,8 @@ class JNFExp(EnhancementExp):
             self.log('val/si_sdr', global_si_sdr.mean(), on_epoch=True, logger=True, sync_dist=True)
 
         return loss
-    
+
+# Hashir: Modification of class above for custom postfilter network structure
 class JNFExp_PF(EnhancementExp):
 
     def __init__(self,

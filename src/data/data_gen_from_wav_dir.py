@@ -5,18 +5,18 @@ import json
 import random
 import numpy as np
 import librosa
+import soundfile as sf
 import shutil
 
-SOURCE_DATA_PATH = "/home/hahmad/Documents/MATLAB/LTSforWASN-main/databases/2026_02_18_15_01_49_nSetups20_10dB_whiteNoise"
+SOURCE_DATA_PATH = "/home/hahmad/Documents/MATLAB/LTSforWASN-main/databases/2026_02_26_13_10_40_nSetups20_15dB_40ms"
 DEST_DATA_PATH = "./src/data/prep/"
 DEST_RAW_DATA_PATH = "./src/data/raw/"
-# PFIX = {"clean": "clean_speech.wav", "noise": "noise_hat_sc.wav", "reverb": "d_hat_sc.wav", "meta": "meta.json"}
-PFIX = {"clean": "cleanSpeech.wav", "noise": "noise.wav", "reverb": "micSpeech.wav", "meta": "meta.json"}
+PFIX = {"clean": "d_hat_mc.wav", "noise": "noise_hat_mc.wav", "reverb": "d_hat_mc.wav", "meta": "meta.json"}
+# PFIX = {"clean": "cleanSpeech.wav", "noise": "noise.wav", "reverb": "micSpeech.wav", "meta": "meta.json"}
 
 def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
                           store_dir: str, 
                           dataset_id: str = None, 
-                          num_files: dict = {'train': -1, 'val': -1, 'test': -1},
                           target_fs: int = 16000,
                           target_utterance_length_s: int = 10,
                           ):
@@ -35,19 +35,15 @@ def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
 
     with h5py.File(os.path.join(store_dir, prep_store_name), 'w') as prep_storage:
         for dataset_name in ['train', 'val', 'test']:
-            # if desired number of files is zero skip dataset creation
-            if num_files[dataset_name] == 0:
-                continue
             
-            files_meta = [name for name in os.listdir(os.path.join(source_dataset_dir, dataset_name)) if name.endswith(PFIX["meta"])]
-            sample_ids = [name.split("_")[1] for name in files_meta]
-            n_dataset_samples = len(files_meta)
+            counter_saved = 0
+            files_speech = [name for name in os.listdir(os.path.join(source_dataset_dir, dataset_name)) if name.endswith(PFIX["clean"])]
+            sample_ids = ['_'.join(name.split("_")[1:3]) for name in files_speech] # adjust the extracted sample ids based on filenames
+            n_dataset_samples = len(files_speech)
             
             # determine number of files to create
             if n_dataset_samples == 0:
                 continue
-            else:
-                n_dataset_samples = num_files[dataset_name] if num_files[dataset_name] > 0 else n_dataset_samples
 
             # pre-loading a single sample to determine number of channels
             temp_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_ids[0]}_{PFIX["reverb"]}'), mono=False, sr=target_fs)[0]
@@ -71,7 +67,11 @@ def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
 
             # for sample_idx, (meta_file, reverb_file, noise_file, clean_file) in enumerate(zip(files_meta, files_reverb_speech, files_noise, files_clean_speech)):
             for idx, sample_id in enumerate(sample_ids):
-                sample_meta  = get_meta_from_json(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["meta"]}'))
+                # sample_meta  = get_meta_from_json(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["meta"]}'))
+                # dataset_meta[idx] = sample_meta
+
+                dataset_meta[idx] = {"n_samples":16000*10}
+                
                 reverb_target_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["reverb"]}'), sr=target_fs, mono=False)[0]
                 noise_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["noise"]}'), sr=target_fs, mono=False)[0]
                 dry_target_signal = librosa.load(os.path.join(source_dataset_dir, dataset_name, f'setup_{sample_id}_{PFIX["clean"]}'), sr=target_fs, mono=False)[0]
@@ -81,10 +81,11 @@ def prep_speaker_mix_data_from_wav_dir(source_dataset_dir: str,
                         audio_signal.shape[-1], MAX_SAMPLES_PER_FILE)
                     audio_dataset[idx, audio_type_idx, :, :n_audio_samples] = audio_signal[...,:n_audio_samples]
                     audio_dataset[idx, audio_type_idx, :, n_audio_samples:MAX_SAMPLES_PER_FILE] = 0
-
-                dataset_meta[idx] = sample_meta
+                
+                counter_saved += 1
 
             meta[dataset_name] = dataset_meta
+            print(f"Saved {counter_saved} {dataset_name} samples under {os.path.join(store_dir, prep_store_name)}")
 
     with open(os.path.join(store_dir, f"prep_mix_meta{'_' + dataset_id if dataset_id else ''}.json"),
               'w') as prep_meta_storage:
@@ -102,6 +103,9 @@ def get_meta_from_json(json_path:str):
     with open(json_path, 'r') as meta_file:
         meta_json = json.load(meta_file)
 
+    # TODO: Hardcoded target utterance length for now, will be changed when json files are adjusted
+    meta["n_samples"] = 16000*10
+
     # meta["rt"] = meta_json["sampling"]["T60_ms"]
     # meta["room_dim"] = meta_json["room_size_m"]
     meta["mic_pos"] = meta_json["positions"]["mics_m"]
@@ -109,8 +113,6 @@ def get_meta_from_json(json_path:str):
     # meta["target_file"] = speaker_list[0].split("wsj0")[-1].replace("\\", "/")
     # meta["n_samples"] = meta_json["sampling"]["fs_Hz"] * meta_json["sampling"]["length_s"]
 
-    # TODO: Hardcoded target utterance length for now, will be changed when json files are adjusted
-    meta["n_samples"] = 16000*10
     meta["target_pos"] = meta_json["positions"]["sources_m"]
 
     # meta["target_angle"] = target_angle
@@ -159,22 +161,11 @@ def import_data(source_dataset_dir:str, dest_dataset_dir:str, substring:list = N
 def create_train_val_test_split(raw_dataset_dir:str, split_ratios: dict = {'train': 0.8, 'val': 0.1, 'test': 0.1}):
     """
     Create train, validation and test split from raw dataset directory containing wav files and corresponding meta JSON files.
-    The wav files are expected to be named in the following format: 
-    
-    dry target signal:          'setup_{idx}_clean_speech.wav'
-    noise signal:               'setup_{idx}_noise_hat_sc.wav'
-    reverberant target signal:  'setup_{idx}_d_hat_sc.wav'
-    
-    , where {idx} is the running index for each sample. 
-    
-    The corresponding meta JSON files are expected to be named in the format 'setup_{idx}_meta.json'.
+    The wav files are expected to be named according to the global PFIX variable.
     
     :param raw_dataset_dir: path to raw dataset directory
     :param split_ratios: split ratios for train, validation and test set. The values should sum up to 1. The keys should be 'train', 'val' and 'test'.
     """
-    # identify postfixes of the files corresponding to the dry target signal, noise signal, reverberant target signal and meta JSON files, respectively.
-    global PFIX
-
     # check whether train, validation and test split already exist and ask for confirmation to overwrite
     split_dirs = ['train', 'val', 'test']
 
@@ -189,15 +180,19 @@ def create_train_val_test_split(raw_dataset_dir:str, split_ratios: dict = {'trai
     # check if split ratios are compute number of samples for each split
     if sum(split_ratios.values()) != 1:
         raise ValueError("The values of split_ratios should sum up to 1.")
-    numSamples = len([name for name in os.listdir(raw_dataset_dir) if name.endswith(".json")])
+    filenames_speech = [name for name in os.listdir(raw_dataset_dir) if name.endswith(PFIX["clean"])]
+    filenames_reverb = [name for name in os.listdir(raw_dataset_dir) if name.endswith(PFIX["reverb"])]
+    filenames_noise = [name for name in os.listdir(raw_dataset_dir) if name.endswith(PFIX["noise"])]
+
+    indices_list = [int(name.split('_')[1]) for name in filenames_speech]
+    numSamples = len([name for name in filenames_speech])
+
     nTrain = int(numSamples * split_ratios['train'])
     nVal = int(numSamples * split_ratios['val'])
     nTest = numSamples - nTrain - nVal
 
     # shuffle json files and split into train, validation and test set
-    indices_list = list(range(1,numSamples+1))
     random.shuffle(indices_list)
-
     train_files = indices_list[:nTrain]
     val_files = indices_list[nTrain:nTrain+nVal]
     test_files = indices_list[nTrain+nVal:]
@@ -209,25 +204,64 @@ def create_train_val_test_split(raw_dataset_dir:str, split_ratios: dict = {'trai
     for idx in train_files:
         for post_fix in PFIX.values():
             f = f"setup_{idx}_{post_fix}"
-            shutil.move(os.path.join(raw_dataset_dir, f), os.path.join(raw_dataset_dir, "train", f))
+            if os.path.isfile(os.path.join(raw_dataset_dir, f)):
+                shutil.move(os.path.join(raw_dataset_dir, f), os.path.join(raw_dataset_dir, "train", f))
+            else:
+                print(f"File: '{f}' does not exist or was already moved")
 
     for idx in val_files:
         for post_fix in PFIX.values():
             f = f"setup_{idx}_{post_fix}"
-            shutil.move(os.path.join(raw_dataset_dir, f), os.path.join(raw_dataset_dir, "val", f))
+            if os.path.isfile(os.path.join(raw_dataset_dir, f)):
+                shutil.move(os.path.join(raw_dataset_dir, f), os.path.join(raw_dataset_dir, "val", f))
+            else:
+                print(f"File: '{f}' does not exist or was already moved")
 
     for idx in test_files:
         for post_fix in PFIX.values():
             f = f"setup_{idx}_{post_fix}"
-            shutil.move(os.path.join(raw_dataset_dir, f), os.path.join(raw_dataset_dir, "test", f))
+            if os.path.isfile(os.path.join(raw_dataset_dir, f)):
+                shutil.move(os.path.join(raw_dataset_dir, f), os.path.join(raw_dataset_dir, "test", f))
+            else:
+                print(f"File: '{f}' does not exist or was already moved")
 
     print(f"Train, validation and test split created with {nTrain} training samples, {nVal} validation samples and {nTest} test samples.")
 
+def transform_mc_to_sc(raw_dataset_dir:str):
+    """Multichannel signals are transformed to individual singlechannel signals such that the total sample size results in 
+    numSamplesNew = numSamples x numChannels """
+    split_dirs = ['train', 'val', 'test']
+    counter = 0
+
+    for split_name in split_dirs:
+        split_path = os.path.join(raw_dataset_dir, split_name)
+        if not os.path.exists(split_path):
+            print(f"{split_name} split does not exist. Skipping.")
+            continue
+
+        filenames_split = [name for name in os.listdir(split_path)]
+        for f in filenames_split:
+            if not "ch" in f:
+                f_list = f.split('_')
+                f_list.insert(2, "0")
+                audio_mc, fs = librosa.load(os.path.join(split_path, f), mono=False)
+
+                for chan, audio_sc in enumerate(audio_mc):
+                    # import pdb; pdb.set_trace()
+                    f_list[2] = "ch"+str(chan)
+                    audio_sc_name = '_'.join(f_list)
+                    sf.write(os.path.join(split_path, audio_sc_name), audio_sc, fs)
+                os.remove(os.path.join(split_path, f))
+                counter += 1
+
+    print(f"Successfully converted {counter} mc files to sc files.")
+
 if __name__ == '__main__':
-    # import_data(os.path.join(SOURCE_DATA_PATH, 'processed', 'best', 'gevd_ml'), DEST_RAW_DATA_PATH, substring=[PFIX["noise"], PFIX["reverb"]])
-    import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["noise"], PFIX["reverb"]])
-    import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["clean"]])
-    import_data(os.path.join(SOURCE_DATA_PATH, 'mat_files'), DEST_RAW_DATA_PATH, substring=[PFIX["meta"]])
+    import_data(os.path.join(SOURCE_DATA_PATH, 'processed', 'best', 'gevd_dml'), DEST_RAW_DATA_PATH, substring=[PFIX["noise"], PFIX["reverb"]])
+    # import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["noise"], PFIX["reverb"]])
+    # import_data(os.path.join(SOURCE_DATA_PATH, 'wav_files'), DEST_RAW_DATA_PATH, substring=[PFIX["clean"]])
+    # import_data(os.path.join(SOURCE_DATA_PATH, 'mat_files'), DEST_RAW_DATA_PATH, substring=[PFIX["meta"]])
 
     create_train_val_test_split(DEST_RAW_DATA_PATH, split_ratios={'train': 0.7, 'val': 0.3, 'test': 0.0})
-    prep_speaker_mix_data_from_wav_dir(DEST_RAW_DATA_PATH, DEST_DATA_PATH, dataset_id=os.path.split(SOURCE_DATA_PATH)[-1], num_files= {'train': -1, 'val': -1, 'test': -1}, target_fs=16000, target_utterance_length_s=10) 
+    transform_mc_to_sc(DEST_RAW_DATA_PATH)
+    prep_speaker_mix_data_from_wav_dir(DEST_RAW_DATA_PATH, DEST_DATA_PATH, dataset_id=os.path.split(SOURCE_DATA_PATH)[-1], target_fs=16000, target_utterance_length_s=10) 

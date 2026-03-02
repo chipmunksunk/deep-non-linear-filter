@@ -7,7 +7,7 @@ from data.datamodule import HDF5DataModule
 from typing import Optional
 import yaml
 
-# Hashir: Added for saving the config file used for training in the log directory for reproducibility and later reference. The config file is saved at the start of training by the SaveConfigCallback callback. The config file is loaded for evaluation in the load_model function.
+# Hashir: Added for saving the config file used for training in the log directory for reproducibility and later reference. The config file is saved at the start of training. The config file is loaded for evaluation in the load_model function.
 class SaveConfigCallback(Callback):
     def __init__(self, config):
         super().__init__()
